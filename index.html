@@ -129,113 +129,161 @@
 </div>
 
 <script>
-const API_BASE = "https://script.google.com/macros/s/AKfycbwVF9Yg1m8yieuCiAuAjj6Tf11-WxRpobTcB1fmQhY-f6zBQ4KjQna5CmEq8RnphGQDYA/exec"; 
-// <-- ponés tu URL de Apps Script deploy
-
-const $ = s => document.querySelector(s);
-const fmtMoney = n => {
-  const v = Number(n||0);
-  return "$ " + v.toLocaleString("es-AR", {minimumFractionDigits:2, maximumFractionDigits:2});
-};
-
-$("#btnBuscar").addEventListener("click", async ()=>{
-  const cli = $("#cli").value.trim();
-  if(!cli){
-    $("#status").textContent = "Falta cliente";
-    return;
-  }
-  $("#status").textContent = "Buscando...";
-
-  try{
-    const res = await fetch(API_BASE + "?cliente=" + encodeURIComponent(cli));
-    const data = await res.json();
-
-    if(data.error){
-      $("#status").textContent = data.error;
+  const API_BASE = "https://script.google.com/macros/s/AKfycbwVF9Yg1m8yieuCiAuAjj6Tf11-WxRpobTcB1fmQhY-f6zBQ4KjQna5CmEq8RnphGQDYA/exec"; 
+  // ↑ poné acá la URL real de tu deployment Apps Script
+  
+  const $ = s => document.querySelector(s);
+  
+  const fmtMoney = n => {
+    const v = Number(n||0);
+    return "$ " + v.toLocaleString("es-AR", {
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    });
+  };
+  
+  // Lógica principal: pedir datos del cliente
+  function solicitarDeuda(clienteId){
+    if(!clienteId){
+      $("#status").textContent = "Falta cliente";
       return;
     }
-
-    renderDeuda(data);
-    $("#status").textContent = "OK";
-  }catch(err){
-    console.error(err);
-    $("#status").textContent = "Error de red/API";
+    $("#status").textContent = "Buscando...";
+  
+    // armamos nombre de callback único
+    const cbName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    window[cbName] = function(data){
+      // cuando Apps Script responde, entra acá
+      try {
+        if (data && !data.error){
+          renderDeuda(data);
+          $("#status").textContent = "OK";
+        } else {
+          $("#status").textContent = data.error || "Sin datos";
+        }
+      } finally {
+        // limpieza: sacamos el <script> que inyectamos y borramos callback
+        cleanupJSONP(cbName);
+      }
+    };
+  
+    // inyectamos <script> para JSONP
+    const url = API_BASE
+      + "?cliente=" + encodeURIComponent(clienteId)
+      + "&callback=" + encodeURIComponent(cbName);
+  
+    const scriptTag = document.createElement("script");
+    scriptTag.src = url;
+    scriptTag.id  = cbName;
+    scriptTag.onerror = function(){
+      $("#status").textContent = "Error al cargar API";
+      cleanupJSONP(cbName);
+    };
+    document.body.appendChild(scriptTag);
   }
-});
-
-function renderDeuda(data){
-  // total
-  $("#totalVencido").textContent = fmtMoney(data.totalVencido) + " vencido";
-
-  // nombre cliente: saco el texto largo de la primer factura
-  let nombre = "";
-  if(data.facturas && data.facturas.length){
-    nombre = data.facturas[0].cliente || "";
+  
+  // Limpia callback y <script>
+  function cleanupJSONP(cbName){
+    // borra la función global
+    try { delete window[cbName]; } catch(e){ window[cbName] = undefined; }
+    // remueve el <script>
+    const s = document.getElementById(cbName);
+    if (s && s.parentNode) s.parentNode.removeChild(s);
   }
-  $("#nombreCliente").textContent = nombre;
-
-  // tabla
-  const tb = $("#tbodyFacturas");
-  tb.innerHTML = "";
-  if(!data.facturas.length){
-    tb.innerHTML = `<tr><td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">Sin facturas abiertas</td></tr>`;
-    return;
+  
+  // Pinta en pantalla
+  function renderDeuda(data){
+    // total vencido
+    $("#totalVencido").textContent = fmtMoney(data.totalVencido) + " vencido";
+  
+    // nombre
+    let nombre = "";
+    if (data.facturas && data.facturas.length){
+      nombre = data.facturas[0].cliente || "";
+    }
+    $("#nombreCliente").textContent = nombre;
+  
+    // tabla
+    const tb = $("#tbodyFacturas");
+    tb.innerHTML = "";
+    if (!data.facturas || !data.facturas.length){
+      tb.innerHTML = `
+        <tr>
+          <td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">
+            Sin facturas abiertas
+          </td>
+        </tr>`;
+    } else {
+      data.facturas.forEach(f => {
+        const vencidoTxt = f.vencida
+          ? (f.diasVencido === 0 ? "HOY" : (f.diasVencido+"d"))
+          : "-";
+  
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${f.tipo} ${f.pv}-${f.nro}</td>
+          <td>${f.emision}</td>
+          <td>${f.vto}</td>
+          <td style="color:${f.vencida ? '#ff6b6b' : '#fff'};font-weight:${f.vencida?600:400};">
+            ${vencidoTxt}
+          </td>
+          <td>${fmtMoney(f.saldo)}</td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+  
+    // pre-armar mensaje WhatsApp
+    $("#btnWhatsapp").dataset.msg = buildWhatsappMsg(data);
   }
-
-  data.facturas.forEach(f=>{
-    const vencidoTxt = f.vencida ? (f.diasVencido===0 ? "HOY" : f.diasVencido+"d") : "-";
-    const tr = document.createElement("tr");
-    if(f.vencida) tr.classList.add("vencida-row");
-    tr.innerHTML = `
-      <td>${f.tipo} ${f.pv}-${f.nro}</td>
-      <td>${f.emision}</td>
-      <td>${f.vto}</td>
-      <td class="${f.vencida ? 'vencida' : ''}">${vencidoTxt}</td>
-      <td>${fmtMoney(f.saldo)}</td>
-    `;
-    tb.appendChild(tr);
+  
+  function buildWhatsappMsg(data){
+    let nombre = "";
+    if (data.facturas && data.facturas.length){
+      nombre = data.facturas[0].cliente || "";
+    }
+  
+    const lines = [];
+    lines.push(`Hola ${nombre}, ¿cómo va? Soy del área de cuentas de CIR.`);
+    lines.push(`Al día de hoy vemos:`);
+  
+    (data.facturas || [])
+      .filter(f=>f.vencida)
+      .forEach(f=>{
+        lines.push(`• ${f.tipo} ${f.pv}-${f.nro} | Emisión ${f.emision} | Vto ${f.vto} | Saldo ${fmtMoney(f.saldo)} (${f.diasVencido}d vencida)`);
+      });
+  
+    lines.push(`Total vencido: ${fmtMoney(data.totalVencido)}`);
+    lines.push(`¿Podemos coordinar el pago?`);
+  
+    return lines.join("\n");
+  }
+  
+  // Botón "Consultar deuda"
+  $("#btnBuscar").addEventListener("click", ()=>{
+    const cli = $("#cli").value.trim();
+    solicitarDeuda(cli);
   });
-
-  // WhatsApp draft queda guardado en dataset para el botón
-  $("#btnWhatsapp").dataset.msg = buildWhatsappMsg(data);
-}
-
-$("#btnWhatsapp").addEventListener("click", ()=>{
-  const msg = $("#btnWhatsapp").dataset.msg || "";
-  if(!msg){
-    alert("Consultá primero un cliente.");
-    return;
-  }
-  // Abrimos WhatsApp Web con el texto armado, sin número (vos después le metés el número del cliente)
-  const url = "https://wa.me/?text=" + encodeURIComponent(msg);
-  window.open(url, "_blank");
-});
-
-function buildWhatsappMsg(data){
-  // Armamos el mensaje estilo "Hola HOTEL MERCURE..."
-  let clienteNom = "";
-  if(data.facturas && data.facturas.length){
-    clienteNom = data.facturas[0].cliente || "";
-  }
-
-  let lines = [];
-  lines.push(`Hola ${clienteNom}, ¿cómo va? Soy del área de cuentas de CIR.`);
-  lines.push(`Al día de hoy vemos:`);
-
-  data.facturas
-    .filter(f=>f.vencida)
-    .forEach(f=>{
-      lines.push(
-        `• ${f.tipo} ${f.pv}-${f.nro} | Emisión ${f.emision} | Vto ${f.vto} | Saldo ${fmtMoney(f.saldo)} (${f.diasVencido}d vencida)`
-      );
-    });
-
-  lines.push(`Total vencido: ${fmtMoney(data.totalVencido)}`);
-  lines.push(`¿Podemos coordinar el pago?`);
-
-  return lines.join("\n");
-}
-</script>
-
+  
+  // Botón "Generar WhatsApp"
+  $("#btnWhatsapp").addEventListener("click", ()=>{
+    const msg = $("#btnWhatsapp").dataset.msg || "";
+    if(!msg){
+      alert("Consultá primero un cliente.");
+      return;
+    }
+    // Abrimos WhatsApp Web con el texto
+    const url = "https://wa.me/?text=" + encodeURIComponent(msg);
+    window.open(url, "_blank");
+  });
+  
+  // OPCIONAL: autoload de un cliente de prueba al abrir la página.
+  // Descomentá esto si querés que apenas abras ya cargue algo y deje de estar en "Esperando...":
+  // window.addEventListener("load", ()=>{
+  //   $("#cli").value = "000010"; // código cliente demo
+  //   solicitarDeuda("000010");
+  // });
+  </script>
+  
 </body>
 </html>
