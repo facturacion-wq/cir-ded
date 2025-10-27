@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CIR · Deuda Cliente</title>
+<style>
+  body {
+    background:#0f172a;
+    color:#fff;
+    font-family: system-ui, Inter, Roboto, sans-serif;
+    margin:0;
+    padding:2rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+  }
+  .card {
+    background:#1e253a;
+    border:1px solid rgba(0,229,143,.2);
+    border-radius:1rem;
+    padding:1rem 1.5rem;
+    box-shadow:0 30px 80px rgba(0,0,0,.8);
+  }
+  .row {
+    display:flex;
+    flex-wrap:wrap;
+    gap:1rem;
+    align-items:flex-end;
+  }
+  label{
+    font-size:.8rem;
+    opacity:.8;
+    display:block;
+    margin-bottom:.25rem;
+  }
+  input{
+    background:#0f172a;
+    border:1px solid rgba(0,229,143,.4);
+    border-radius:.5rem;
+    color:#fff;
+    padding:.75rem 1rem;
+    font-size:1rem;
+    min-width:140px;
+  }
+  button{
+    background:#00e58f;
+    color:#000;
+    font-weight:600;
+    border:0;
+    border-radius:.5rem;
+    padding:.8rem 1.2rem;
+    cursor:pointer;
+    font-size:1rem;
+  }
+  h1,h2{
+    margin:0;
+    font-weight:600;
+    color:#00e58f;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:.9rem;
+  }
+  th,td{
+    text-align:left;
+    padding:.5rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.07);
+  }
+  th{
+    font-weight:500;
+    color:#00e58f;
+    font-size:.8rem;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+  .vencida{
+    color:#ff6b6b;
+    font-weight:600;
+  }
+  .totalBox{
+    font-size:1.2rem;
+    font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+<div class="row card">
+  <div>
+    <label>Código Cliente (sin corchetes)</label>
+    <input id="cli" placeholder="000010">
+  </div>
+  <div>
+    <button id="btnBuscar">Consultar deuda</button>
+  </div>
+  <div style="margin-left:auto">
+    <div style="font-size:.75rem;opacity:.6">Estado</div>
+    <div id="status" style="font-size:.9rem;font-weight:500;">Esperando...</div>
+  </div>
+</div>
+
+<div class="card">
+  <h1>Detalle de deuda</h1>
+  <div class="totalBox" id="totalVencido">$ 0,00 vencido</div>
+  <div style="font-size:.8rem;opacity:.7" id="nombreCliente"></div>
+
+  <div style="overflow-x:auto;margin-top:1rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Cbte</th>
+          <th>Emisión</th>
+          <th>Vto</th>
+          <th>Vencido</th>
+          <th>Saldo</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyFacturas">
+        <tr><td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">Sin datos</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:1rem;">
+    <button id="btnWhatsapp">Generar WhatsApp</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = "https://script.google.com/macros/s/AKfycbxp73W_HngBETHIQQ-N2yV2I9PhpzpXXjbCdBIFKbuQ8i1IRZBi52xbTWbdjT08_egsJg/exec"; 
+// <-- ponés tu URL de Apps Script deploy
+
+const $ = s => document.querySelector(s);
+const fmtMoney = n => {
+  const v = Number(n||0);
+  return "$ " + v.toLocaleString("es-AR", {minimumFractionDigits:2, maximumFractionDigits:2});
+};
+
+$("#btnBuscar").addEventListener("click", async ()=>{
+  const cli = $("#cli").value.trim();
+  if(!cli){
+    $("#status").textContent = "Falta cliente";
+    return;
+  }
+  $("#status").textContent = "Buscando...";
+
+  try{
+    const res = await fetch(API_BASE + "?cliente=" + encodeURIComponent(cli));
+    const data = await res.json();
+
+    if(data.error){
+      $("#status").textContent = data.error;
+      return;
+    }
+
+    renderDeuda(data);
+    $("#status").textContent = "OK";
+  }catch(err){
+    console.error(err);
+    $("#status").textContent = "Error de red/API";
+  }
+});
+
+function renderDeuda(data){
+  // total
+  $("#totalVencido").textContent = fmtMoney(data.totalVencido) + " vencido";
+
+  // nombre cliente: saco el texto largo de la primer factura
+  let nombre = "";
+  if(data.facturas && data.facturas.length){
+    nombre = data.facturas[0].cliente || "";
+  }
+  $("#nombreCliente").textContent = nombre;
+
+  // tabla
+  const tb = $("#tbodyFacturas");
+  tb.innerHTML = "";
+  if(!data.facturas.length){
+    tb.innerHTML = `<tr><td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">Sin facturas abiertas</td></tr>`;
+    return;
+  }
+
+  data.facturas.forEach(f=>{
+    const vencidoTxt = f.vencida ? (f.diasVencido===0 ? "HOY" : f.diasVencido+"d") : "-";
+    const tr = document.createElement("tr");
+    if(f.vencida) tr.classList.add("vencida-row");
+    tr.innerHTML = `
+      <td>${f.tipo} ${f.pv}-${f.nro}</td>
+      <td>${f.emision}</td>
+      <td>${f.vto}</td>
+      <td class="${f.vencida ? 'vencida' : ''}">${vencidoTxt}</td>
+      <td>${fmtMoney(f.saldo)}</td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  // WhatsApp draft queda guardado en dataset para el botón
+  $("#btnWhatsapp").dataset.msg = buildWhatsappMsg(data);
+}
+
+$("#btnWhatsapp").addEventListener("click", ()=>{
+  const msg = $("#btnWhatsapp").dataset.msg || "";
+  if(!msg){
+    alert("Consultá primero un cliente.");
+    return;
+  }
+  // Abrimos WhatsApp Web con el texto armado, sin número (vos después le metés el número del cliente)
+  const url = "https://wa.me/?text=" + encodeURIComponent(msg);
+  window.open(url, "_blank");
+});
+
+function buildWhatsappMsg(data){
+  // Armamos el mensaje estilo "Hola HOTEL MERCURE..."
+  let clienteNom = "";
+  if(data.facturas && data.facturas.length){
+    clienteNom = data.facturas[0].cliente || "";
+  }
+
+  let lines = [];
+  lines.push(`Hola ${clienteNom}, ¿cómo va? Soy del área de cuentas de CIR.`);
+  lines.push(`Al día de hoy vemos:`);
+
+  data.facturas
+    .filter(f=>f.vencida)
+    .forEach(f=>{
+      lines.push(
+        `• ${f.tipo} ${f.pv}-${f.nro} | Emisión ${f.emision} | Vto ${f.vto} | Saldo ${fmtMoney(f.saldo)} (${f.diasVencido}d vencida)`
+      );
+    });
+
+  lines.push(`Total vencido: ${fmtMoney(data.totalVencido)}`);
+  lines.push(`¿Podemos coordinar el pago?`);
+
+  return lines.join("\n");
+}
+</script>
+
+</body>
+</html>
