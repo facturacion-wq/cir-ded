@@ -1,289 +1,534 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CIR · Deuda Cliente</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CIR · Morosos</title>
+
 <style>
+  :root {
+    --bg-main:#0f172a;
+    --bg-card:#1e253a;
+    --accent:#00e58f;
+    --text:#fff;
+    --text-dim:rgba(255,255,255,.6);
+    --border:rgba(0,229,143,.18);
+  }
+
+  * { box-sizing:border-box; -webkit-font-smoothing: antialiased; }
+
   body {
-    background:#0f172a;
-    color:#fff;
-    font-family: system-ui, Inter, Roboto, sans-serif;
+    background:var(--bg-main);
+    color:var(--text);
+    font-family: system-ui, Inter, "Inter var", Roboto, "SF Pro Display", Arial, sans-serif;
     margin:0;
-    padding:2rem;
+    padding:0;
     display:flex;
     flex-direction:column;
-    gap:1.5rem;
+    min-height:100dvh;
   }
-  .card {
-    background:#1e253a;
-    border:1px solid rgba(0,229,143,.2);
-    border-radius:1rem;
-    padding:1rem 1.5rem;
-    box-shadow:0 30px 80px rgba(0,0,0,.8);
-  }
-  .row {
+
+  header.topbar {
     display:flex;
     flex-wrap:wrap;
+    align-items:flex-start;
     gap:1rem;
+    padding:1rem 1.5rem;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    background:radial-gradient(circle at 0% 0%, rgba(0,229,143,.15) 0%, rgba(0,0,0,0) 60%);
+  }
+  .brand {
+    font-size:1rem;
+    font-weight:600;
+    color:var(--accent);
+    line-height:1.2;
+  }
+  .status-box {
+    margin-left:auto;
+    text-align:right;
+    min-width:120px;
+  }
+  .status-label {
+    font-size:.7rem;
+    color:var(--text-dim);
+    line-height:1.2;
+  }
+  #status {
+    font-size:.85rem;
+    font-weight:500;
+    line-height:1.2;
+    color:var(--text);
+  }
+
+  main.wrap {
+    flex:1;
+    padding:1.5rem;
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:1.5rem;
+    max-width:1400px;
+    width:100%;
+    margin:0 auto 4rem auto;
+  }
+
+  .card {
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:1rem;
+    box-shadow:0 30px 80px rgba(0,0,0,.8);
+    padding:1rem 1.25rem 1.25rem;
+  }
+
+  /* Summary stats */
+  .summary-stats {
+    display:flex;
+    flex-wrap:wrap;
+    gap:1.5rem;
     align-items:flex-end;
   }
-  label{
-    font-size:.8rem;
-    opacity:.8;
-    display:block;
-    margin-bottom:.25rem;
-  }
-  input{
-    background:#0f172a;
-    border:1px solid rgba(0,229,143,.4);
-    border-radius:.5rem;
-    color:#fff;
-    padding:.75rem 1rem;
-    font-size:1rem;
+  .stat {
+    flex:1;
     min-width:140px;
   }
-  button{
-    background:#00e58f;
-    color:#000;
-    font-weight:600;
-    border:0;
-    border-radius:.5rem;
-    padding:.8rem 1.2rem;
-    cursor:pointer;
-    font-size:1rem;
-  }
-  h1,h2{
-    margin:0;
-    font-weight:600;
-    color:#00e58f;
-  }
-  table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:.9rem;
-  }
-  th,td{
-    text-align:left;
-    padding:.5rem .75rem;
-    border-bottom:1px solid rgba(255,255,255,.07);
-  }
-  th{
-    font-weight:500;
-    color:#00e58f;
-    font-size:.8rem;
+  .stat-label {
+    font-size:.7rem;
     text-transform:uppercase;
     letter-spacing:.05em;
+    color:var(--text-dim);
+    font-weight:500;
+    margin-bottom:.25rem;
   }
-  .vencida{
+  .stat-value {
+    font-size:1.5rem;
+    font-weight:600;
+    color:var(--accent);
+    line-height:1.2;
+  }
+
+  .note {
+    font-size:.75rem;
+    color:var(--text-dim);
+    line-height:1.3;
+    max-width:400px;
+  }
+
+  /* Table wrapper */
+  h2 {
+    margin:0 0 .75rem 0;
+    font-size:1rem;
+    font-weight:600;
+    color:var(--accent);
+    line-height:1.2;
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+  }
+  h2 span.sub {
+    font-size:.75rem;
+    font-weight:400;
+    color:var(--text-dim);
+  }
+
+  .tableWrap {
+    width:100%;
+    overflow-x:auto;
+    border-radius:.5rem;
+    border:1px solid rgba(255,255,255,.07);
+    background:rgba(15,23,42,.3);
+  }
+  table {
+    width:100%;
+    border-collapse:collapse;
+    min-width:700px;
+    font-size:.85rem;
+  }
+  thead th {
+    text-align:left;
+    font-weight:500;
+    font-size:.7rem;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--accent);
+    background:rgba(0,0,0,.3);
+    padding:.6rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    white-space:nowrap;
+  }
+  tbody tr.mainRow {
+    cursor:pointer;
+  }
+  tbody tr.mainRow:hover {
+    background:rgba(0,229,143,.07);
+  }
+  tbody td {
+    padding:.6rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.05);
+    vertical-align:top;
+    line-height:1.3;
+  }
+  tbody tr.detailRow td {
+    background:rgba(0,0,0,.4);
+  }
+  .hide {
+    display:none;
+  }
+
+  .clienteName {
+    font-weight:600;
+    color:#fff;
+    font-size:.85rem;
+    line-height:1.2;
+    word-break:break-word;
+  }
+  .clienteId {
+    font-size:.7rem;
+    color:var(--text-dim);
+    line-height:1.2;
+  }
+
+  .money {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    white-space:nowrap;
+    font-weight:600;
+    color:var(--accent);
+  }
+  .atraso {
+    font-weight:600;
     color:#ff6b6b;
-    font-weight:600;
+    white-space:nowrap;
   }
-  .totalBox{
-    font-size:1.2rem;
-    font-weight:600;
+  .countCell {
+    font-weight:500;
+  }
+
+  .smallNote {
+    margin-top:.75rem;
+    font-size:.7rem;
+    line-height:1.3;
+    color:var(--text-dim);
+  }
+
+  /* inner table for detail */
+  .innerTable {
+    width:100%;
+    border-collapse:collapse;
+    background:rgba(15,23,42,.5);
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:.5rem;
+    font-size:.75rem;
+  }
+  .innerTable th {
+    text-align:left;
+    font-size:.7rem;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    font-weight:500;
+    color:var(--accent);
+    background:rgba(0,0,0,.4);
+    padding:.5rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    white-space:nowrap;
+  }
+  .innerTable td {
+    padding:.5rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.05);
+    vertical-align:top;
+    line-height:1.3;
+  }
+  .innerTable tr:last-child td {
+    border-bottom:0;
+  }
+
+  footer.foot {
+    text-align:center;
+    font-size:.7rem;
+    color:var(--text-dim);
+    padding:1rem 1rem 2rem;
+  }
+
+  @media (min-width:768px){
+    .summary-stats {align-items:flex-start;}
+    .stat-value {font-size:2rem;}
   }
 </style>
 </head>
 <body>
 
-<div class="row card">
-  <div>
-    <label>Código Cliente (sin corchetes)</label>
-    <input id="cli" placeholder="000010">
+<header class="topbar">
+  <div class="brand">
+    CIR · Deuda Vencida
   </div>
-  <div>
-    <button id="btnBuscar">Consultar deuda</button>
+  <div class="status-box">
+    <div class="status-label">Estado</div>
+    <div id="status">Cargando…</div>
   </div>
-  <div style="margin-left:auto">
-    <div style="font-size:.75rem;opacity:.6">Estado</div>
-    <div id="status" style="font-size:.9rem;font-weight:500;">Esperando...</div>
-  </div>
-</div>
+</header>
 
-<div class="card">
-  <h1>Detalle de deuda</h1>
-  <div class="totalBox" id="totalVencido">$ 0,00 vencido</div>
-  <div style="font-size:.8rem;opacity:.7" id="nombreCliente"></div>
+<main class="wrap">
 
-  <div style="overflow-x:auto;margin-top:1rem;">
-    <table>
-      <thead>
-        <tr>
-          <th>Cbte</th>
-          <th>Emisión</th>
-          <th>Vto</th>
-          <th>Vencido</th>
-          <th>Saldo</th>
-        </tr>
-      </thead>
-      <tbody id="tbodyFacturas">
-        <tr><td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">Sin datos</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <!-- KPIs globales -->
+  <section class="card">
+    <div class="summary-stats">
+      <div class="stat">
+        <div class="stat-label">Morosos activos</div>
+        <div class="stat-value" id="cantMorosos">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Total vencido</div>
+        <div class="stat-value" id="totalGlobal">$ 0,00</div>
+      </div>
+      <div class="note">
+        Mostrando sólo clientes con facturas que pasaron 14 días desde la fecha de emisión y siguen con saldo pendiente.
+      </div>
+    </div>
+  </section>
 
-  <div style="margin-top:1rem;">
-    <button id="btnWhatsapp">Generar WhatsApp</button>
-  </div>
-</div>
+  <!-- Tabla de morosos -->
+  <section class="card">
+    <h2>
+      Listado de morosos
+      <span class="sub" id="lastUpdated"></span>
+    </h2>
+
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente / ID</th>
+            <th>Total vencido</th>
+            <th>+ Atraso</th>
+            <th>Facturas vencidas</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyMorosos">
+          <tr>
+            <td colspan="4" style="opacity:.5;padding:2rem;text-align:center;">
+              Cargando…
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="smallNote">Tocá una fila para ver el detalle de facturas vencidas, fechas y montos.</div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  CIR · Uso interno · Datos confidenciales
+</footer>
 
 <script>
-  const API_BASE = "https://script.google.com/macros/s/AKfycbwVF9Yg1m8yieuCiAuAjj6Tf11-WxRpobTcB1fmQhY-f6zBQ4KjQna5CmEq8RnphGQDYA/exec"; 
-  // ↑ poné acá la URL real de tu deployment Apps Script
-  
-  const $ = s => document.querySelector(s);
-  
-  const fmtMoney = n => {
-    const v = Number(n||0);
-    return "$ " + v.toLocaleString("es-AR", {
-      minimumFractionDigits:2,
-      maximumFractionDigits:2
+// ===================== CONFIG =====================
+const API_BASE = "https://script.google.com/macros/s/AKfycbwyTWGUpC2sW0snkIAa2G-boyJO2RlMz-1oSBcocCmHjIsc7LeLyt-2WmeKlnpgjBmqgw/exec";
+// ↑ tu deployment actual de Apps Script
+// IMPORTANTE: tu Apps Script tiene que soportar ?morosos=1&callback=XYZ
+// y devolver JSONP con este formato:
+// {
+//   "morosos":[
+//     {
+//       "clienteId":"000010",
+//       "nombre":"[000010] JARDINES DEL SUR S.R.L. - ...",
+//       "totalVencido":701820.00,
+//       "maxDiasAtraso":12,
+//       "facturas":[
+//         {
+//           "cbte":"FA 8-62013",
+//           "emision":"14/10/2025",
+//           "vto":"22/10/2025",
+//           "diasAtraso":12,         // días después de (FechaFactura+14)
+//           "saldo":575513.40
+//         },
+//         ...
+//       ]
+//     },
+//     ...
+//   ],
+//   "generatedAt":"2025-10-27 14:32"
+// }
+
+// ===================== HELPERS =====================
+const $ = sel => document.querySelector(sel);
+
+function fmtMoney(n){
+  const v = Number(n||0);
+  return "$ " + v.toLocaleString("es-AR", {
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
+function escapeHTML(str){
+  return (str||"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+// Limpia callback y <script> JSONP
+function cleanupJSONP(cbName){
+  try { delete window[cbName]; } catch(e){ window[cbName] = undefined; }
+  const s = document.getElementById(cbName);
+  if (s && s.parentNode) s.parentNode.removeChild(s);
+}
+
+// ===================== RENDER =====================
+
+// Rellena tabla principal + KPIs
+function renderMorosos(payload){
+  const lista = payload.morosos || [];
+  const tbody = $("#tbodyMorosos");
+  tbody.innerHTML = "";
+
+  if(!lista.length){
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="opacity:.5;padding:2rem;text-align:center;">
+          Ningún cliente superó los 14 días de crédito. Hermoso.
+        </td>
+      </tr>`;
+  }
+
+  // calcular KPIs globales
+  let totalGlobal = 0;
+  lista.forEach(m => { totalGlobal += Number(m.totalVencido||0); });
+
+  $("#cantMorosos").textContent = lista.length;
+  $("#totalGlobal").textContent = fmtMoney(totalGlobal);
+  $("#lastUpdated").textContent = payload.generatedAt
+    ? ("Actualizado " + payload.generatedAt)
+    : "";
+
+  // construir filas
+  lista.forEach((m,idx)=>{
+    const mainRow = document.createElement("tr");
+    mainRow.className = "mainRow";
+    mainRow.dataset.idx = idx;
+
+    const clienteHtml = `
+      <div class="clienteName">${escapeHTML(shortenName(m.nombre||""))}</div>
+      <div class="clienteId">${escapeHTML(m.clienteId||"-")}</div>
+    `;
+
+    mainRow.innerHTML = `
+      <td>${clienteHtml}</td>
+      <td class="money">${fmtMoney(m.totalVencido)}</td>
+      <td class="atraso">${Number(m.maxDiasAtraso||0)}d</td>
+      <td class="countCell">${(m.facturas||[]).length}</td>
+    `;
+
+    const detailRow = document.createElement("tr");
+    detailRow.className = "detailRow hide";
+    detailRow.id = "detail-"+idx;
+
+    detailRow.innerHTML = `
+      <td colspan="4">
+        ${renderDetalleFacturas(m.facturas||[])}
+      </td>
+    `;
+
+    mainRow.addEventListener("click", ()=>{
+      const d = $("#detail-"+idx);
+      d.classList.toggle("hide");
     });
-  };
-  
-  // Lógica principal: pedir datos del cliente
-  function solicitarDeuda(clienteId){
-    if(!clienteId){
-      $("#status").textContent = "Falta cliente";
-      return;
-    }
-    $("#status").textContent = "Buscando...";
-  
-    // armamos nombre de callback único
-    const cbName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*100000);
-    window[cbName] = function(data){
-      // cuando Apps Script responde, entra acá
-      try {
-        if (data && !data.error){
-          renderDeuda(data);
-          $("#status").textContent = "OK";
-        } else {
-          $("#status").textContent = data.error || "Sin datos";
-        }
-      } finally {
-        // limpieza: sacamos el <script> que inyectamos y borramos callback
-        cleanupJSONP(cbName);
+
+    tbody.appendChild(mainRow);
+    tbody.appendChild(detailRow);
+  });
+}
+
+// Renderiza la tabla interna con facturas vencidas del cliente
+function renderDetalleFacturas(facts){
+  if(!facts.length){
+    return `<div style="font-size:.75rem;color:var(--text-dim);padding:.75rem 0;">
+      Sin facturas vencidas en +14 días.
+    </div>`;
+  }
+
+  let rows = "";
+  facts.forEach(f=>{
+    rows += `
+      <tr>
+        <td>${escapeHTML(f.cbte||"-")}</td>
+        <td>${escapeHTML(f.emision||"-")}</td>
+        <td>${escapeHTML(f.vto||"-")}</td>
+        <td class="atraso">${Number(f.diasAtraso||0)}d</td>
+        <td class="money">${fmtMoney(f.saldo)}</td>
+      </tr>`;
+  });
+
+  return `
+    <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:.5rem;">
+      Facturas vencidas (+14 días de crédito):
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="innerTable">
+        <thead>
+          <tr>
+            <th>Cbte</th>
+            <th>Emisión</th>
+            <th>Vto</th>
+            <th>Atraso</th>
+            <th>Saldo</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Para que la tabla no explote con nombres kilométricos
+function shortenName(str){
+  // str viene tipo "[000010] JARDINES DEL SUR S.R.L. - LAPRIDA 2765, 2765 - ROSARIO (2020)"
+  // Le sacamos la parte de dirección larga si hay " - "
+  const parts = (str||"").split(" - ");
+  return parts[0] || str || "";
+}
+
+// ===================== FETCH (JSONP) =====================
+
+function solicitarMorosos(){
+  $("#status").textContent = "Cargando morosos…";
+
+  const cbName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+  window[cbName] = function(data){
+    try {
+      if (data && data.morosos){
+        renderMorosos(data);
+        $("#status").textContent = "OK";
+      } else {
+        $("#status").textContent = "Sin datos de morosos";
       }
-    };
-  
-    // inyectamos <script> para JSONP
-    const url = API_BASE
-      + "?cliente=" + encodeURIComponent(clienteId)
-      + "&callback=" + encodeURIComponent(cbName);
-  
-    const scriptTag = document.createElement("script");
-    scriptTag.src = url;
-    scriptTag.id  = cbName;
-    scriptTag.onerror = function(){
-      $("#status").textContent = "Error al cargar API";
+    } catch(err){
+      console.error(err);
+      $("#status").textContent = "Error al procesar datos";
+    } finally {
       cleanupJSONP(cbName);
-    };
-    document.body.appendChild(scriptTag);
-  }
-  
-  // Limpia callback y <script>
-  function cleanupJSONP(cbName){
-    // borra la función global
-    try { delete window[cbName]; } catch(e){ window[cbName] = undefined; }
-    // remueve el <script>
-    const s = document.getElementById(cbName);
-    if (s && s.parentNode) s.parentNode.removeChild(s);
-  }
-  
-  // Pinta en pantalla
-  function renderDeuda(data){
-    // total vencido
-    $("#totalVencido").textContent = fmtMoney(data.totalVencido) + " vencido";
-  
-    // nombre
-    let nombre = "";
-    if (data.facturas && data.facturas.length){
-      nombre = data.facturas[0].cliente || "";
     }
-    $("#nombreCliente").textContent = nombre;
-  
-    // tabla
-    const tb = $("#tbodyFacturas");
-    tb.innerHTML = "";
-    if (!data.facturas || !data.facturas.length){
-      tb.innerHTML = `
-        <tr>
-          <td colspan="5" style="opacity:.5;padding:2rem;text-align:center;">
-            Sin facturas abiertas
-          </td>
-        </tr>`;
-    } else {
-      data.facturas.forEach(f => {
-        const vencidoTxt = f.vencida
-          ? (f.diasVencido === 0 ? "HOY" : (f.diasVencido+"d"))
-          : "-";
-  
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${f.tipo} ${f.pv}-${f.nro}</td>
-          <td>${f.emision}</td>
-          <td>${f.vto}</td>
-          <td style="color:${f.vencida ? '#ff6b6b' : '#fff'};font-weight:${f.vencida?600:400};">
-            ${vencidoTxt}
-          </td>
-          <td>${fmtMoney(f.saldo)}</td>
-        `;
-        tb.appendChild(tr);
-      });
-    }
-  
-    // pre-armar mensaje WhatsApp
-    $("#btnWhatsapp").dataset.msg = buildWhatsappMsg(data);
-  }
-  
-  function buildWhatsappMsg(data){
-    let nombre = "";
-    if (data.facturas && data.facturas.length){
-      nombre = data.facturas[0].cliente || "";
-    }
-  
-    const lines = [];
-    lines.push(`Hola ${nombre}, ¿cómo va? Soy del área de cuentas de CIR.`);
-    lines.push(`Al día de hoy vemos:`);
-  
-    (data.facturas || [])
-      .filter(f=>f.vencida)
-      .forEach(f=>{
-        lines.push(`• ${f.tipo} ${f.pv}-${f.nro} | Emisión ${f.emision} | Vto ${f.vto} | Saldo ${fmtMoney(f.saldo)} (${f.diasVencido}d vencida)`);
-      });
-  
-    lines.push(`Total vencido: ${fmtMoney(data.totalVencido)}`);
-    lines.push(`¿Podemos coordinar el pago?`);
-  
-    return lines.join("\n");
-  }
-  
-  // Botón "Consultar deuda"
-  $("#btnBuscar").addEventListener("click", ()=>{
-    const cli = $("#cli").value.trim();
-    solicitarDeuda(cli);
-  });
-  
-  // Botón "Generar WhatsApp"
-  $("#btnWhatsapp").addEventListener("click", ()=>{
-    const msg = $("#btnWhatsapp").dataset.msg || "";
-    if(!msg){
-      alert("Consultá primero un cliente.");
-      return;
-    }
-    // Abrimos WhatsApp Web con el texto
-    const url = "https://wa.me/?text=" + encodeURIComponent(msg);
-    window.open(url, "_blank");
-  });
-  
-  // OPCIONAL: autoload de un cliente de prueba al abrir la página.
-  // Descomentá esto si querés que apenas abras ya cargue algo y deje de estar en "Esperando...":
-  // window.addEventListener("load", ()=>{
-  //   $("#cli").value = "000010"; // código cliente demo
-  //   solicitarDeuda("000010");
-  // });
-  </script>
-  
+  };
+
+  const url = API_BASE
+    + "?morosos=1"
+    + "&callback=" + encodeURIComponent(cbName);
+
+  const scriptTag = document.createElement("script");
+  scriptTag.src = url;
+  scriptTag.id  = cbName;
+  scriptTag.onerror = function(){
+    $("#status").textContent = "Error al cargar API";
+    cleanupJSONP(cbName);
+  };
+  document.body.appendChild(scriptTag);
+}
+
+// auto-cargar al abrir
+window.addEventListener("load", solicitarMorosos);
+</script>
+
 </body>
 </html>
